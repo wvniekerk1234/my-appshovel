@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CalendarIcon, Plus, Trash2, Users, Printer } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface Project {
   id: string
@@ -43,6 +44,7 @@ export default function ShovelProjectTracker() {
   const [reportStartDate, setReportStartDate] = useState<Date>()
   const [reportEndDate, setReportEndDate] = useState<Date>()
   const [reportTeamMemberFilter, setReportTeamMemberFilter] = useState<string>("all")
+  const [isLoading, setIsLoading] = useState(true)
 
   // Project form state
   const [newProjectCode, setNewProjectCode] = useState("")
@@ -58,35 +60,119 @@ export default function ShovelProjectTracker() {
   const [kilometers, setKilometers] = useState("")
   const [description, setDescription] = useState("")
 
-  // Load data from localStorage on component mount
+  // Load data from API on component mount
   useEffect(() => {
-    const savedProjects = localStorage.getItem("shovel-projects")
-    const savedTeamMembers = localStorage.getItem("shovel-team-members")
-    const savedEntries = localStorage.getItem("shovel-time-entries")
+    const fetchData = async () => {
+      setIsLoading(true)
+      try {
+        // Fetch projects
+        const projectsRes = await fetch('/api/projects')
+        if (projectsRes.ok) {
+          const projectsData = await projectsRes.json()
+          setProjects(projectsData)
+        }
 
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects))
+        // Fetch team members
+        const teamMembersRes = await fetch('/api/team-members')
+        if (teamMembersRes.ok) {
+          const teamMembersData = await teamMembersRes.json()
+          setTeamMembers(teamMembersData)
+        }
+
+        // Fetch time entries
+        const timeEntriesRes = await fetch('/api/time-entries')
+        if (timeEntriesRes.ok) {
+          const timeEntriesData = await timeEntriesRes.json()
+          setTimeEntries(timeEntriesData)
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+        toast.error('Failed to load data. Please refresh the page.')
+      } finally {
+        setIsLoading(false)
+      }
     }
-    if (savedTeamMembers) {
-      setTeamMembers(JSON.parse(savedTeamMembers))
-    }
-    if (savedEntries) {
-      setTimeEntries(JSON.parse(savedEntries))
-    }
+
+    fetchData()
   }, [])
 
-  // Save to localStorage whenever data changes
+  // Save projects to API whenever they change
   useEffect(() => {
-    localStorage.setItem("shovel-projects", JSON.stringify(projects))
-  }, [projects])
+    const saveProjects = async () => {
+      if (projects.length > 0 && !isLoading) {
+        try {
+          const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(projects),
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to save projects')
+          }
+        } catch (error) {
+          console.error('Error saving projects:', error)
+          toast.error('Failed to save projects. Please try again.')
+        }
+      }
+    }
 
-  useEffect(() => {
-    localStorage.setItem("shovel-team-members", JSON.stringify(teamMembers))
-  }, [teamMembers])
+    saveProjects()
+  }, [projects, isLoading])
 
+  // Save team members to API whenever they change
   useEffect(() => {
-    localStorage.setItem("shovel-time-entries", JSON.stringify(timeEntries))
-  }, [timeEntries])
+    const saveTeamMembers = async () => {
+      if (teamMembers.length > 0 && !isLoading) {
+        try {
+          const response = await fetch('/api/team-members', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(teamMembers),
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to save team members')
+          }
+        } catch (error) {
+          console.error('Error saving team members:', error)
+          toast.error('Failed to save team members. Please try again.')
+        }
+      }
+    }
+
+    saveTeamMembers()
+  }, [teamMembers, isLoading])
+
+  // Save time entries to API whenever they change
+  useEffect(() => {
+    const saveTimeEntries = async () => {
+      if (timeEntries.length > 0 && !isLoading) {
+        try {
+          const response = await fetch('/api/time-entries', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(timeEntries),
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to save time entries')
+          }
+        } catch (error) {
+          console.error('Error saving time entries:', error)
+          toast.error('Failed to save time entries. Please try again.')
+        }
+      }
+    }
+
+    saveTimeEntries()
+  }, [timeEntries, isLoading])
 
   const addProject = () => {
     if (newProjectCode && newProjectName) {
@@ -98,12 +184,14 @@ export default function ShovelProjectTracker() {
       setProjects([...projects, newProject])
       setNewProjectCode("")
       setNewProjectName("")
+      toast.success('Project added successfully')
     }
   }
 
   const deleteProject = (id: string) => {
     setProjects(projects.filter((p) => p.id !== id))
     setTimeEntries(timeEntries.filter((e) => e.projectId !== id))
+    toast.success('Project deleted successfully')
   }
 
   const addTeamMember = () => {
@@ -114,12 +202,14 @@ export default function ShovelProjectTracker() {
       }
       setTeamMembers([...teamMembers, newMember])
       setNewTeamMemberName("")
+      toast.success('Team member added successfully')
     }
   }
 
   const deleteTeamMember = (id: string) => {
     setTeamMembers(teamMembers.filter((m) => m.id !== id))
     setTimeEntries(timeEntries.filter((e) => e.teamMemberId !== id))
+    toast.success('Team member deleted successfully')
   }
 
   const addTimeEntry = () => {
@@ -139,11 +229,13 @@ export default function ShovelProjectTracker() {
       setHours("")
       setKilometers("")
       setDescription("")
+      toast.success('Time entry added successfully')
     }
   }
 
   const deleteTimeEntry = (id: string) => {
     setTimeEntries(timeEntries.filter((e) => e.id !== id))
+    toast.success('Time entry deleted successfully')
   }
 
   const getFilteredEntries = () => {
@@ -203,6 +295,9 @@ export default function ShovelProjectTracker() {
   const printReport = () => {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
+
+    const filteredEntries = getFilteredEntries()
+    const totals = calculateTotals(filteredEntries)
 
     const reportHtml = `
       <!DOCTYPE html>
@@ -301,6 +396,17 @@ export default function ShovelProjectTracker() {
 
   const filteredEntries = getFilteredEntries()
   const totals = calculateTotals(filteredEntries)
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Loading...</h2>
+          <p className="text-muted-foreground">Please wait while we load your data</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -473,11 +579,12 @@ export default function ShovelProjectTracker() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="hours">Hours Worked</Label>
+                  <Label htmlFor="hours">Hours</Label>
                   <Input
                     id="hours"
                     type="number"
                     step="0.5"
+                    min="0"
                     value={hours}
                     onChange={(e) => setHours(e.target.value)}
                     placeholder="0.0"
@@ -489,6 +596,7 @@ export default function ShovelProjectTracker() {
                     id="kilometers"
                     type="number"
                     step="0.1"
+                    min="0"
                     value={kilometers}
                     onChange={(e) => setKilometers(e.target.value)}
                     placeholder="0.0"
@@ -497,7 +605,7 @@ export default function ShovelProjectTracker() {
               </div>
 
               <div>
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="description">Description (optional)</Label>
                 <Input
                   id="description"
                   value={description}
